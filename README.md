@@ -77,6 +77,14 @@ Returns the name of the given log level as a string.
 If the library is compiled with `-DLOG_USE_COLOR` ANSI color escape codes will
 be used when printing.
 
+#### LOG_LOC_ALIGN
+If the library is compiled with `-DLOG_LOC_ALIGN`, the width of the log line
+reserved for the location of in the file (e.g. *src/main.c:238*) will be
+constant, either padded or truncated depending on the size of the file.
+
+The actual width is defined with the macro `LOG_LOC_LEN` and defaults to 16.
+If needed, this width can be overriden to `n` by giving the `-DLOG_LOC_LEN=n`
+flag to the compiler.
 
 ## License
 This library is free software; you can redistribute it and/or modify it under
