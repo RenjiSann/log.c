@@ -34,13 +34,13 @@
 typedef struct {
     log_LogFn fn;
     void *udata;
-    int level;
+    log_level level;
 } Callback;
 
 static struct {
     void *udata;
     log_LockFn lock;
-    int level;
+    log_level level;
     bool quiet;
     Callback callbacks[MAX_CALLBACKS];
 } L;
@@ -122,7 +122,7 @@ static void unlock(void) {
     }
 }
 
-const char *log_level_string(int level) {
+const char *log_level_string(log_level level) {
     return level_strings[level];
 }
 
@@ -131,7 +131,7 @@ void log_set_lock(log_LockFn fn, void *udata) {
     L.udata = udata;
 }
 
-void log_set_level(int level) {
+void log_set_level(log_level level) {
     L.level = level;
 }
 
@@ -139,7 +139,7 @@ void log_set_quiet(bool enable) {
     L.quiet = enable;
 }
 
-int log_add_callback(log_LogFn fn, void *udata, int level) {
+int log_add_callback(log_LogFn fn, void *udata, log_level level) {
     for (int i = 0; i < MAX_CALLBACKS; i++) {
         if (!L.callbacks[i].fn) {
             L.callbacks[i] = (Callback){ fn, udata, level };
@@ -149,7 +149,7 @@ int log_add_callback(log_LogFn fn, void *udata, int level) {
     return -1;
 }
 
-int log_add_fp(FILE *fp, int level) {
+int log_add_fp(FILE *fp, log_level level) {
     return log_add_callback(file_callback, fp, level);
 }
 
@@ -161,7 +161,7 @@ static void init_event(log_Event *ev, void *udata) {
     ev->udata = udata;
 }
 
-void log_log(int level, const char *file, int line, const char *fmt, ...) {
+void log_log(log_level level, const char *file, int line, const char *fmt, ...) {
     log_Event ev = {
         .fmt = fmt,
         .file = file,
