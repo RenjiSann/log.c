@@ -25,6 +25,10 @@
 
 #include <string.h>
 
+#ifdef LOG_PID
+#include <unistd.h>
+#endif // LOG_PID
+
 #define MAX_CALLBACKS 32
 
 #ifndef LOG_LOC_LEN
@@ -49,9 +53,13 @@ static const char *level_strings[] = { "TRACE", "DEBUG", "INFO",
                                        "WARN",  "ERROR", "FATAL" };
 
 #ifdef LOG_USE_COLOR
-static const char *level_colors[] = { "\x1b[94m", "\x1b[36m", "\x1b[32m",
-                                      "\x1b[33m", "\x1b[31m", "\x1b[35m" };
-#endif
+static const char *level_colors[] = { "\x1b[94mTRACE", "\x1b[36mDEBUG",
+                                      "\x1b[32mINFO",  "\x1b[33mWARN",
+                                      "\x1b[31mERROR", "\x1b[35mFATAL" };
+#define LEVEL_STR level_colors
+#else
+#define LEVEL_STR level_strings
+#endif // LOG_USE_COLOR
 
 #ifdef LOG_LOC_ALIGN
 static inline void file_loc(const char *fname, int line, char *out, int len) {
@@ -62,15 +70,36 @@ static inline void file_loc(const char *fname, int line, char *out, int len) {
 
     if (total > len) {
         // Truncate
-        int offset = total - len + 3; // 3 for '...'
+        int offset = total - len + 3 + 1; // 3 for '...'
         snprintf(out, len, "...%s:%s", fname + offset, line_nb_buf);
     } else {
         // Add padding
-        int padding = len - total;
+        int padding = len - total - 1;
         snprintf(out, len, "%*s%s:%s", padding, "", fname, line_nb_buf);
     }
 }
+
+#define LOC_FMT "%s"
+#define LOC_ARG , buf_loc
+#else
+#define LOC_FMT "%s:%d"
+#define LOC_ARG , ev->file, ev->line
 #endif // LOG_LOC_ALIGN
+
+#ifdef LOG_PID
+#define PID_FMT "[%6d] "
+#define PID_ARG , getpid()
+#else
+#define PID_FMT
+#define PID_ARG
+#endif // LOG_PID
+
+#ifdef LOG_USE_COLOR
+#define FMT "%s " PID_FMT "%-10s\x1b[0m \x1b[90m" LOC_FMT ":\x1b[0m "
+#else
+#define FMT "%s " PID_FMT "%-5s " LOC_FMT ": "
+#endif // LOG_USE_COLOR
+
 
 static void stdout_callback(log_Event *ev) {
     char buf[16];
@@ -79,22 +108,11 @@ static void stdout_callback(log_Event *ev) {
 #ifdef LOG_LOC_ALIGN
     char buf_loc[LOG_LOC_LEN];
     file_loc(ev->file, ev->line, buf_loc, LOG_LOC_LEN);
-#ifdef LOG_USE_COLOR
-    fprintf(ev->udata, "%s %s%-5s\x1b[0m \x1b[90m%s:\x1b[0m ", buf,
-            level_colors[ev->level], level_strings[ev->level], buf_loc);
-#else
-    fprintf(ev->udata, "%s %-5s %s: ", buf, level_strings[ev->level],
-            buf_loc);
-#endif // LOG_USE_COLOR
-#else // LOG_LOC_ALIGN
-#ifdef LOG_USE_COLOR
-    fprintf(ev->udata, "%s %s%-5s\x1b[0m \x1b[90m%s:%d:\x1b[0m ", buf,
-            level_colors[ev->level], level_strings[ev->level], ev->file, ev->line);
-#else // LOG_USE_COLOR
-    fprintf(ev->udata, "%s %-5s %s:%d: ", buf, level_strings[ev->level],
-            ev->file, ev->line);
-#endif // LOG_USE_COLOR
 #endif // LOG_LOC_ALIGN
+
+    // Macro black magic to minimize the runtime complexity.
+    fprintf(ev->udata, FMT, buf PID_ARG, LEVEL_STR[ev->level] LOC_ARG);
+
     vfprintf(ev->udata, ev->fmt, ev->ap);
     fprintf(ev->udata, "\n");
     fflush(ev->udata);
@@ -161,7 +179,8 @@ static void init_event(log_Event *ev, void *udata) {
     ev->udata = udata;
 }
 
-void log_log(log_level level, const char *file, int line, const char *fmt, ...) {
+void log_log(log_level level, const char *file, int line, const char *fmt,
+             ...) {
     log_Event ev = {
         .fmt = fmt,
         .file = file,

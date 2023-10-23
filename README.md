@@ -86,6 +86,12 @@ The actual width is defined with the macro `LOG_LOC_LEN` and defaults to 16.
 If needed, this width can be overriden to `n` by giving the `-DLOG_LOC_LEN=n`
 flag to the compiler.
 
+#### LOG_PID
+If the library is compiled with `-DLOG_PID`, each log line will be show the PID
+of the calling process. You might not use this if your program is performance-
+critical and particularly verbose, as each log line will call the `getpid(2)`
+syscall.
+
 ## License
 This library is free software; you can redistribute it and/or modify it under
 the terms of the MIT license. See [LICENSE](LICENSE) for details.
